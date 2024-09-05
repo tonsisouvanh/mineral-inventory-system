@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from "react";
 
-import { Modal } from 'antd';
+import { Modal } from "antd";
 type Props = {
   open: boolean;
   setOpen: (open: boolean) => void;
@@ -8,9 +8,12 @@ type Props = {
   isPending?: boolean;
 };
 
-const ModalConfirmSignOut: React.FC<Props> = ({ open, setOpen, handleLogout, isPending }) => {
-  const [modalText, setModalText] = useState('You will be signed out. Continue?');
-
+const ModalConfirmSignOut: React.FC<Props> = ({
+  open,
+  setOpen,
+  handleLogout,
+  isPending,
+}) => {
   const handleOk = () => {
     handleLogout();
   };
@@ -21,8 +24,14 @@ const ModalConfirmSignOut: React.FC<Props> = ({ open, setOpen, handleLogout, isP
 
   return (
     <>
-      <Modal title="Sign Out" open={open} onOk={handleOk} confirmLoading={isPending} onCancel={handleCancel}>
-        <p>{modalText}</p>
+      <Modal
+        title="Sign Out"
+        open={open}
+        onOk={handleOk}
+        confirmLoading={isPending}
+        onCancel={handleCancel}
+      >
+        <p>{"You will be signed out. Continue?"}</p>
       </Modal>
     </>
   );
