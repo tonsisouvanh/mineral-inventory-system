@@ -1,0 +1,298 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum MovementType {
+  IN
+  OUT
+  TRANSFER
+  UNSPECIFIED
+}
+
+enum Role {
+  ADMIN
+  USER
+  SUPPLIER
+}
+
+enum DeliveryStatus {
+  PENDING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum ReorderLevelEnum {
+  LOW
+  NORMAL
+  OUT_OF_STOCK
+  UNKNOWN
+}
+
+model ErrorLog {
+  id           String   @id @default(uuid())
+  timestamp    DateTime @default(now())
+  endpoint     String
+  requestBody  Json
+  errorMessage String
+  stackTrace   String?  @db.LongText
+  created_at   DateTime @default(now())
+
+  @@map("error_logs")
+}
+
+model ReorderLevel {
+  id          Int              @id @default(autoincrement())
+  level_name  ReorderLevelEnum @default(NORMAL)
+  level_value Int              @default(0)
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @default(now()) @updatedAt
+
+  @@map("reorder_levels")
+}
+
+model RefreshToken {
+  id         Int      @id @default(autoincrement())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id    Int      @map("user_id")
+  token      String   @unique
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  @@map("refresh_tokens")
+}
+
+model User {
+  id                Int            @id @default(autoincrement())
+  type              String?        @db.VarChar(55)
+  email             String         @unique @db.VarChar(255)
+  email_verified_at DateTime?
+  password          String         @db.VarChar(255)
+  remember_token    String?        @db.VarChar(255)
+  role              Role           @default(USER)
+  phone             String?        @db.VarChar(15)
+  name              String         @db.VarChar(125)
+  gender            String?        @db.VarChar(55)
+  dob               DateTime?
+  province          String?        @db.VarChar(255)
+  district          String?        @db.VarChar(255)
+  village           String?        @db.VarChar(255)
+  remarks           String?        @db.Text
+  created_at        DateTime       @default(now())
+  updated_at        DateTime       @default(now()) @updatedAt
+  banned_at         DateTime?
+  lastlogin_at      DateTime?
+  orders            Order[]
+  auditlogs         AuditLog[]
+  notifications     Notification[]
+  refreshtokens     RefreshToken[]
+  productstocks     ProductStock[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model AuditLog {
+  id          Int      @id @default(autoincrement())
+  user        User?    @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user_id     Int?     @map("user_id")
+  action      String
+  entity_type String?
+  entity_id   String?
+  remarks     String?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  @@map("audit_logs")
+}
+
+model Notification {
+  id         Int      @id @default(autoincrement())
+  user       User?    @relation(fields: [user_id], references: [id])
+  user_id    Int?     @map("user_id")
+  title      String   @db.VarChar(255)
+  message    String   @db.Text
+  is_read    Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  @@map("notifications")
+}
+
+model Supplier {
+  id            Int       @id @default(autoincrement())
+  name          String    @db.VarChar(255)
+  contact_email String?   @db.VarChar(125)
+  contact_phone String    @db.VarChar(15)
+  address       String?   @db.VarChar(255)
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @default(now()) @updatedAt
+  products      Product[]
+  orders        Order[]
+
+  @@map("suppliers")
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String    @db.VarChar(255)
+  description String?
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @default(now()) @updatedAt
+  products    Product[]
+
+  @@index([name])
+  @@map("categories")
+}
+
+model Product {
+  id                Int             @id @default(autoincrement())
+  product_number    Int             @unique
+  code              String?         @db.VarChar(55)
+  name              String          @db.VarChar(255)
+  short_description String?         @db.VarChar(255)
+  long_description  String?         @db.Text
+  price             Decimal         @db.Decimal(18, 0)
+  sku               String?         @unique @db.VarChar(50)
+  images            String?         @db.Text
+  size              String?         @db.VarChar(55)
+  category          Category?       @relation(fields: [category_id], references: [id], onDelete: SetNull)
+  category_id       Int?            @map("category_id")
+  supplier          Supplier?       @relation(fields: [supplier_id], references: [id], onDelete: SetNull)
+  supplier_id       Int?            @map("supplier_id")
+  quantity          Int             @default(0)
+  reorder_level     Int             @default(0) // reorder when quantity <= reorder_level, status = low | normal | Out of Stock = 0
+  active_at         DateTime?       @default(now())
+  pack              Int?            @default(1)
+  type              String?         @db.VarChar(55)
+  remarks           String?         @db.Text
+  created_at        DateTime        @default(now())
+  updated_at        DateTime        @default(now()) @updatedAt
+  storage_type      String?         @db.VarChar(55)
+  orderdetails      OrderDetail[]
+  productstocks     ProductStock[]
+  bundleproducts    BundleProduct[]
+
+  @@index([name, sku])
+  @@map("products")
+}
+
+model BundleProduct {
+  id           Int     @id @default(autoincrement())
+  code         String? @db.VarChar(55)
+  name         String  @db.VarChar(255)
+  price        Decimal @db.Decimal(18, 0)
+  storage_type String? @db.VarChar(55)
+  quantity     Int     @default(0)
+  pack         Int     @default(1)
+  images       String? @db.Text
+  product      Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  product_id   Int     @map("product_id")
+
+  @@map("bundle_products")
+}
+
+model ProductStock {
+  id            Int          @id @default(autoincrement())
+  movement_type MovementType @default(UNSPECIFIED)
+  quantity      Int          @default(0)
+  remarks       String?      @db.Text
+  product       Product      @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  product_id    Int          @map("product_id")
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @default(now()) @updatedAt
+  user          User?        @relation(fields: [created_by], references: [id])
+  created_by    Int?         @map("created_by") // 0 = anonymous
+
+  @@map("product_stocks")
+}
+
+model Order {
+  id                String    @id
+  order_code        String?   @unique
+  order_amount      Decimal   @db.Decimal(18, 0)
+  payment_amount    Decimal?  @db.Decimal(18, 0)
+  payment_status    String?   @db.VarChar(55)
+  shipping_fee      Decimal?  @db.Decimal(18, 0)
+  shipping_amount   Decimal?  @db.Decimal(18, 0)
+  shipping_village  String?   @db.VarChar(255)
+  shipping_district String?   @db.VarChar(255)
+  shipping_province String?   @db.VarChar(255)
+  shipping_phone    String?   @db.VarChar(15)
+  shipping_name     String?   @db.VarChar(125)
+  gift_rule         String?   @db.VarChar(355)
+  supplier          Supplier? @relation(fields: [supplier_id], references: [id], onDelete: SetNull)
+  supplier_id       Int?      @map("supplier_id")
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @default(now()) @updatedAt
+  user              User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  user_id           Int?      @map("user_id")
+
+  orderdetails    OrderDetail[]
+  orderpayment    OrderPayment?
+  orderdeliveries OrderDelivery[]
+
+  @@index([id])
+  @@map("orders")
+}
+
+model OrderDetail {
+  id          Int      @id @default(autoincrement())
+  order       Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  order_id    String   @map("order_id")
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  product_id  Int      @map("product_id")
+  quantity    Int      @default(1)
+  price       Decimal  @db.Decimal(18, 0)
+  total_price Decimal  @default(0) @db.Decimal(18, 0) // quantity * price
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now()) @updatedAt
+
+  @@map("order_details")
+}
+
+model OrderPayment {
+  id         Int      @id @default(autoincrement())
+  order      Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  order_id   String   @unique @map("order_id")
+  payment    Decimal  @db.Decimal(18, 0)
+  remarks    String?  @db.Text
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
+
+  @@map("order_payments")
+}
+
+model Delivery {
+  id              Int             @id @default(autoincrement())
+  name            String          @db.VarChar(255)
+  phone           String?         @db.VarChar(18)
+  address         String?         @db.VarChar(255)
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @default(now()) @updatedAt
+  orderdeliveries OrderDelivery[]
+
+  @@map("deliveries")
+}
+
+model OrderDelivery {
+  id               Int            @id @default(autoincrement())
+  order            Order?         @relation(fields: [order_id], references: [id], onDelete: SetNull)
+  order_id         String?        @map("order_id")
+  delivery         Delivery?      @relation(fields: [delivery_id], references: [id])
+  delivery_id      Int?           @map("delivery_id")
+  delivery_date    DateTime?      @default(now())
+  deliver_quantity Int?           @default(0)
+  delivery_status  DeliveryStatus @default(PENDING)
+  tracking_number  String?        @db.VarChar(255)
+  remarks          String?        @db.Text
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @default(now()) @updatedAt
+
+  @@map("order_deliveries")
+}
