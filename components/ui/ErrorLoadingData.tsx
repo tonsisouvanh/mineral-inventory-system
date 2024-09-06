@@ -1,6 +1,7 @@
-import { Button, Result } from "antd";
+import { Button, Result } from 'antd';
+import { FaExclamationTriangle } from 'react-icons/fa';
 
-const ErrorLoadingData = () => {
+const ErrorLoadingData = ({ message = 'Error loading data, please try to refresh' }) => {
   return (
     // <div className="flex h-64 items-center justify-center">
     //   <div className="flex flex-col items-center">
